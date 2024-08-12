@@ -1,3 +1,6 @@
+use snapgenda::CalendarSnapshot;
+
 fn main() {
-    println!("Hello, world!");
+    let clndr = CalendarSnapshot::new();
+    println!("{:?}", clndr)
 }
