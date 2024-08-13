@@ -1,29 +1,61 @@
-use chrono::{Days, Local, NaiveDateTime};
+use chrono::{Days, NaiveDate, NaiveDateTime};
 
-type WeekNumber = u8;
+#[derive(Debug, PartialEq)]
+pub enum Error {
+    WeekOutOfRange(String),
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Error::WeekOutOfRange(s) => write!(f, "Week out of range {s}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+#[derive(Debug, PartialEq)]
+pub struct WeekRequest {
+    year: i32,
+    week_number: u8,
+}
+
+impl WeekRequest {
+    pub fn new(week_number: u8, year: i32) -> Result<WeekRequest, Error> {
+        if week_number > 53 {
+            return Err(Error::WeekOutOfRange(
+                "week cannot be higher than 53".to_string(),
+            ));
+        }
+
+        // TODO: Handle case of 53 and 52 weeks in a year.
+
+        Ok(WeekRequest { year, week_number })
+    }
+}
 
 #[derive(Debug)]
 pub struct CalendarSnapshot {
-    week: Week,
+    pub week: Week,
 }
 
 impl CalendarSnapshot {
-    pub fn new() -> CalendarSnapshot {
+    pub fn new(wr: WeekRequest) -> CalendarSnapshot {
         CalendarSnapshot {
-            week: Week::new(21),
+            week: Week::new(wr),
         }
     }
 }
 
 #[derive(Debug)]
 pub struct Week {
-    days: [Day; 7],
+    pub days: [Day; 7],
 }
 
 impl Week {
-    pub fn new(calendar_week: u8) -> Week {
-        // Grab the monday of the passed week.
-        let mon = week_start(calendar_week);
+    pub fn new(wr: WeekRequest) -> Week {
+        let mon = week_start(wr);
         Week {
             days: [
                 Day::new(mon),
@@ -38,21 +70,25 @@ impl Week {
     }
 }
 
-pub fn week_start(w: WeekNumber) -> NaiveDateTime {
-    // TODO: impl
-    Local::now().naive_local()
+fn week_start(wr: WeekRequest) -> NaiveDate {
+    let start_year = NaiveDate::from_ymd_opt(wr.year, 1, 1).unwrap();
+    let week_multiplicator = wr.week_number - 1;
+    let days_until_week = (week_multiplicator as u64) * 7;
+    start_year
+        .checked_add_days(Days::new(days_until_week))
+        .unwrap()
 }
 
 #[derive(Debug)]
 pub struct Day {
-    slots: Vec<Slot>,
+    pub slots: Vec<Slot>,
 }
 
 impl Day {
-    pub fn new(d: NaiveDateTime) -> Day {
+    pub fn new(d: NaiveDate) -> Day {
         // Unwrap is safe here.
-        let start = d.date().and_hms_opt(0, 0, 0).unwrap();
-        let end = d.date().and_hms_opt(23, 59, 59).unwrap();
+        let start = d.and_hms_opt(0, 0, 0).unwrap();
+        let end = d.and_hms_opt(23, 59, 59).unwrap();
 
         Day {
             slots: vec![Slot::new(start, end)],
@@ -62,9 +98,9 @@ impl Day {
 
 #[derive(Debug)]
 pub struct Slot {
-    from: NaiveDateTime,
-    to: NaiveDateTime,
-    availability: Availability,
+    pub from: NaiveDateTime,
+    pub to: NaiveDateTime,
+    pub availability: Availability,
 }
 
 impl Slot {
@@ -81,4 +117,71 @@ impl Slot {
 pub enum Availability {
     Busy,
     Free,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct WeekStartTestCase {
+        wr: WeekRequest,
+        expected: NaiveDate,
+    }
+
+    #[test]
+    fn test_week_start() {
+        let test_cases = vec![
+            WeekStartTestCase {
+                wr: WeekRequest {
+                    year: 2024,
+                    week_number: 1,
+                },
+                expected: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            },
+            WeekStartTestCase {
+                wr: WeekRequest {
+                    year: 2024,
+                    week_number: 50,
+                },
+                expected: NaiveDate::from_ymd_opt(2024, 12, 9).unwrap(),
+            },
+        ];
+
+        for test_case in test_cases {
+            let act_day = week_start(test_case.wr);
+            assert_eq!(test_case.expected, act_day);
+        }
+    }
+
+    struct WeekRequestTestCase {
+        year: i32,
+        week_number: u8,
+        exp: Result<WeekRequest, Error>,
+    }
+
+    #[test]
+    fn test_week_request() {
+        let test_cases = vec![
+            WeekRequestTestCase {
+                year: 2024,
+                week_number: 1,
+                exp: Ok(WeekRequest {
+                    year: 2024,
+                    week_number: 1,
+                }),
+            },
+            WeekRequestTestCase {
+                year: 2024,
+                week_number: 54,
+                exp: Err(Error::WeekOutOfRange(
+                    "week cannot be higher than 53".to_string(),
+                )),
+            },
+        ];
+
+        for test_case in test_cases {
+            let wr_act = WeekRequest::new(test_case.week_number, test_case.year);
+            assert_eq!(test_case.exp, wr_act);
+        }
+    }
 }
