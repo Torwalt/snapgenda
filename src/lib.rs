@@ -1,4 +1,4 @@
-use chrono::{Days, NaiveDate, NaiveDateTime};
+use chrono::{Datelike, Days, NaiveDate, NaiveDateTime};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -29,9 +29,22 @@ impl WeekRequest {
             ));
         }
 
-        // TODO: Handle case of 53 and 52 weeks in a year.
+        let wr = WeekRequest { year, week_number };
 
-        Ok(WeekRequest { year, week_number })
+        let mon = week_start(&wr);
+
+        // Week is considered part of the same year, when all days are part of the same year.
+        // Atleast thats how google calendar does it. Shortcut: The sunday must be in the same
+        // year.
+        let sunday = mon.checked_add_days(Days::new(6)).unwrap();
+        if sunday.year() > year {
+            return Err(Error::WeekOutOfRange(format!(
+                "year {} has less than {} weeks",
+                year, week_number
+            )));
+        }
+
+        Ok(wr)
     }
 }
 
@@ -55,7 +68,7 @@ pub struct Week {
 
 impl Week {
     pub fn new(wr: WeekRequest) -> Week {
-        let mon = week_start(wr);
+        let mon = week_start(&wr);
         Week {
             days: [
                 Day::new(mon),
@@ -70,7 +83,7 @@ impl Week {
     }
 }
 
-fn week_start(wr: WeekRequest) -> NaiveDate {
+fn week_start(wr: &WeekRequest) -> NaiveDate {
     let start_year = NaiveDate::from_ymd_opt(wr.year, 1, 1).unwrap();
     let week_multiplicator = wr.week_number - 1;
     let days_until_week = (week_multiplicator as u64) * 7;
@@ -148,7 +161,7 @@ mod tests {
         ];
 
         for test_case in test_cases {
-            let act_day = week_start(test_case.wr);
+            let act_day = week_start(&test_case.wr);
             assert_eq!(test_case.expected, act_day);
         }
     }
@@ -176,6 +189,21 @@ mod tests {
                 exp: Err(Error::WeekOutOfRange(
                     "week cannot be higher than 53".to_string(),
                 )),
+            },
+            WeekRequestTestCase {
+                year: 2024,
+                week_number: 53,
+                exp: Err(Error::WeekOutOfRange(
+                    "year 2024 has less than 53 weeks".to_string(),
+                )),
+            },
+            WeekRequestTestCase {
+                year: 2024,
+                week_number: 52,
+                exp: Ok(WeekRequest {
+                    year: 2024,
+                    week_number: 52,
+                }),
             },
         ];
 
