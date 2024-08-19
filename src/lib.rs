@@ -1,3 +1,5 @@
+use std::fmt;
+
 use chrono::{Datelike, Days, NaiveDate, NaiveDateTime};
 
 #[derive(Debug, PartialEq)]
@@ -130,6 +132,16 @@ impl Slot {
 pub enum Availability {
     Busy,
     Free,
+}
+
+impl fmt::Display for Availability {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            Availability::Free => "Free",
+            Availability::Busy => "Busy",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[cfg(test)]

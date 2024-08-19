@@ -1,7 +1,8 @@
-use snapgenda::CalendarSnapshot;
+use chrono::{NaiveTime, TimeDelta};
+use snapgenda::{CalendarSnapshot, Week};
 
 pub struct Matrix {
-    rows: Vec<Row>,
+    pub rows: Vec<Row>,
 }
 
 pub struct Row {
@@ -14,7 +15,7 @@ impl Row {
             cells: vec![
                 // First Cell is empty.
                 Cell {
-                    value: "".to_string(),
+                    value: "-----------------".to_string(),
                 },
                 Cell {
                     value: "Mon".to_string(),
@@ -41,34 +42,37 @@ impl Row {
         }
     }
 
-    pub fn new() -> Row {
-        // Every next row has to start with a cell denoting the time of day, e.g. 00:00, 01:00, etc.
-        let cells: Vec<Cell> = Vec::new();
+    pub fn new(time_slot: TimeSlot) -> Row {
+        let mut cells: Vec<Cell> = Vec::new();
+
+        cells.push(Cell {
+            value: time_slot.render(),
+        });
 
         Row { cells }
     }
-}
 
-#[derive(Debug, PartialEq)]
-pub struct Slot {
-    from: u8,
-    to: u8,
-}
+    pub fn new_rows() -> Vec<Row> {
+        let mut rows: Vec<Row> = Vec::new();
 
-impl Slot {
-    pub fn new(from: u8) -> Slot {
-        let to = from + 1;
-        Slot { from, to }
-    }
-
-    pub fn new_slots() -> Vec<Slot> {
-        let mut slots: Vec<Slot> = Vec::new();
-
-        for i in 0..=22 {
-            slots.push(Slot::new(i));
+        for i in 0..=23 {
+            let from: u32 = i.try_into().unwrap();
+            let ts = TimeSlot::new(from);
+            let row = Row::new(ts);
+            rows.push(row);
         }
 
-        return slots;
+        return rows;
+    }
+
+    pub fn render(&self) -> String {
+        let mut out = String::new();
+
+        for s in &self.cells {
+            out.push_str(&s.render())
+        }
+
+        return out;
     }
 }
 
@@ -76,48 +80,57 @@ pub struct Cell {
     value: String,
 }
 
-pub fn render(cs: &CalendarSnapshot) -> Matrix {
+impl Cell {
+    pub fn render(&self) -> String {
+        format!("| {:^9} |", self.value)
+    }
+}
+
+pub fn render_calendar(cs: &CalendarSnapshot) -> Matrix {
     let mut rows: Vec<Row> = Vec::new();
     let header_row = Row::new_header();
-
     rows.push(header_row);
+
+    // Init all Rows
+    let mut slot_rows: Vec<Row> = Vec::new();
+    slot_rows.extend(Row::new_rows());
+
+    for day in &cs.week.days {
+        for (i, row) in slot_rows.iter_mut().enumerate() {
+            let cell = Cell {
+                value: "Free".to_string(),
+            };
+            row.cells.push(cell);
+        }
+    }
+
+    rows.extend(slot_rows);
 
     Matrix { rows }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug, PartialEq)]
+pub struct TimeSlot {
+    from: NaiveTime,
+    to: NaiveTime,
+}
 
-    #[test]
-    fn test_new_slots() {
-        let slots = Slot::new_slots();
-        let exp: Vec<Slot> = vec![
-            Slot { from: 0, to: 1 },
-            Slot { from: 1, to: 2 },
-            Slot { from: 2, to: 3 },
-            Slot { from: 3, to: 4 },
-            Slot { from: 4, to: 5 },
-            Slot { from: 5, to: 6 },
-            Slot { from: 6, to: 7 },
-            Slot { from: 7, to: 8 },
-            Slot { from: 8, to: 9 },
-            Slot { from: 9, to: 10 },
-            Slot { from: 10, to: 11 },
-            Slot { from: 11, to: 12 },
-            Slot { from: 12, to: 13 },
-            Slot { from: 13, to: 14 },
-            Slot { from: 14, to: 15 },
-            Slot { from: 15, to: 16 },
-            Slot { from: 16, to: 17 },
-            Slot { from: 17, to: 18 },
-            Slot { from: 18, to: 19 },
-            Slot { from: 19, to: 20 },
-            Slot { from: 20, to: 21 },
-            Slot { from: 21, to: 22 },
-            Slot { from: 22, to: 23 },
-        ];
+impl TimeSlot {
+    fn new(from: u32) -> TimeSlot {
+        let from_time = NaiveTime::from_hms_opt(from, 0, 0).unwrap();
+        let (to_time, _) = from_time.overflowing_add_signed(TimeDelta::hours(1));
+        TimeSlot {
+            from: from_time,
+            to: to_time,
+        }
+    }
 
-        assert_eq!(slots, exp);
+    fn render(&self) -> String {
+        let s = format!(
+            "{} - {}",
+            self.from.format("%H:%M"),
+            self.to.format("%H:%M")
+        );
+        format!("| {:^9} |", s)
     }
 }
