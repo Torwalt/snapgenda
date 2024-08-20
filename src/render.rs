@@ -1,5 +1,5 @@
-use chrono::{NaiveTime, TimeDelta};
-use snapgenda::{CalendarSnapshot, Week};
+use chrono::{NaiveDateTime, NaiveTime, TimeDelta};
+use snapgenda::{CalendarSnapshot, Slot};
 
 pub struct Matrix {
     pub rows: Vec<Row>,
@@ -15,28 +15,44 @@ impl Row {
             cells: vec![
                 // First Cell is empty.
                 Cell {
-                    value: "-----------------".to_string(),
+                    values: vec!["-----------------".to_string()],
+                    is_start: true,
+                    is_end: false,
                 },
                 Cell {
-                    value: "Mon".to_string(),
+                    is_start: true,
+                    is_end: false,
+                    values: vec!["Mon".to_string()],
                 },
                 Cell {
-                    value: "Tue".to_string(),
+                    is_start: true,
+                    is_end: false,
+                    values: vec!["Tue".to_string()],
                 },
                 Cell {
-                    value: "Wed".to_string(),
+                    is_start: true,
+                    is_end: false,
+                    values: vec!["Wed".to_string()],
                 },
                 Cell {
-                    value: "Thu".to_string(),
+                    is_start: true,
+                    is_end: false,
+                    values: vec!["Thu".to_string()],
                 },
                 Cell {
-                    value: "Fri".to_string(),
+                    is_start: true,
+                    is_end: false,
+                    values: vec!["Fri".to_string()],
                 },
                 Cell {
-                    value: "Sat".to_string(),
+                    is_start: true,
+                    is_end: false,
+                    values: vec!["Sat".to_string()],
                 },
                 Cell {
-                    value: "Sun".to_string(),
+                    is_start: true,
+                    is_end: false,
+                    values: vec!["Sun".to_string()],
                 },
             ],
         }
@@ -46,7 +62,9 @@ impl Row {
         let mut cells: Vec<Cell> = Vec::new();
 
         cells.push(Cell {
-            value: time_slot.render(),
+            is_start: true,
+            is_end: false,
+            values: vec![time_slot.render()],
         });
 
         Row { cells }
@@ -77,12 +95,37 @@ impl Row {
 }
 
 pub struct Cell {
-    value: String,
+    is_start: bool,
+    is_end: bool,
+    values: Vec<String>,
 }
 
 impl Cell {
     pub fn render(&self) -> String {
-        format!("| {:^9} |", self.value)
+        let mut out = String::new();
+        for v in &self.values {
+            let s = format!("| {:^9} |", v);
+            out.push_str(&s.to_string())
+        }
+        return out;
+    }
+
+    pub fn from_slots(slots: Vec<Slot>) -> Vec<Cell> {
+        let mut out: Vec<Cell> = Vec::new();
+        for slot in slots {
+            let cells = Cell::new_cells(slot.from, slot.to);
+            out.extend(cells);
+        }
+
+        return out;
+    }
+
+    pub fn new_cells(from: NaiveDateTime, to: NaiveDateTime) -> Vec<Cell> {
+        let out: Vec<Cell> = Vec::new();
+        let diff = from - to;
+        if diff <= TimeDelta::hours(1) {}
+
+        return out;
     }
 }
 
@@ -98,7 +141,9 @@ pub fn render_calendar(cs: &CalendarSnapshot) -> Matrix {
     for day in &cs.week.days {
         for (i, row) in slot_rows.iter_mut().enumerate() {
             let cell = Cell {
-                value: "Free".to_string(),
+                values: vec!["Free".to_string()],
+                is_start: false,
+                is_end: false,
             };
             row.cells.push(cell);
         }
