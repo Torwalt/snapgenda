@@ -1,8 +1,25 @@
-use chrono::{NaiveDateTime, NaiveTime, TimeDelta};
+use chrono::{NaiveTime, TimeDelta, Timelike};
 use snapgenda::{CalendarSnapshot, Slot};
 
 pub struct Matrix {
+    pub header_row: Row,
     pub rows: Vec<Row>,
+}
+
+impl Matrix {
+    pub fn new() -> Matrix {
+        let header_row = Row::new_header();
+        let rows = Row::new_rows();
+
+        Matrix { header_row, rows }
+    }
+
+    pub fn rows_for_slot(&mut self, s: &Slot) -> &mut [Row] {
+        let start = s.from.time().hour();
+        let end = s.to.time().hour();
+
+        &mut self.rows[start as usize..end as usize]
+    }
 }
 
 pub struct Row {
@@ -94,6 +111,7 @@ impl Row {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct Cell {
     is_start: bool,
     is_end: bool,
@@ -113,45 +131,57 @@ impl Cell {
     pub fn from_slots(slots: Vec<Slot>) -> Vec<Cell> {
         let mut out: Vec<Cell> = Vec::new();
         for slot in slots {
-            let cells = Cell::new_cells(slot.from, slot.to);
+            let cells = Cell::new_cells(&slot);
             out.extend(cells);
         }
 
         return out;
     }
 
-    pub fn new_cells(from: NaiveDateTime, to: NaiveDateTime) -> Vec<Cell> {
-        let out: Vec<Cell> = Vec::new();
-        let diff = from - to;
-        if diff <= TimeDelta::hours(1) {}
+    pub fn new_cells(s: &snapgenda::Slot) -> Vec<Cell> {
+        let mut out: Vec<Cell> = Vec::new();
+
+        let mut cursor = s.from;
+        while cursor <= s.to {
+            let c = Cell {
+                is_start: false,
+                is_end: false,
+                values: vec![s.availability.to_string()],
+            };
+            out.push(c);
+
+            cursor = cursor + TimeDelta::hours(1);
+            if cursor >= s.to {
+                break;
+            }
+        }
 
         return out;
     }
 }
 
 pub fn render_calendar(cs: &CalendarSnapshot) -> Matrix {
-    let mut rows: Vec<Row> = Vec::new();
-    let header_row = Row::new_header();
-    rows.push(header_row);
-
-    // Init all Rows
-    let mut slot_rows: Vec<Row> = Vec::new();
-    slot_rows.extend(Row::new_rows());
+    let mut m = Matrix::new();
 
     for day in &cs.week.days {
-        for (i, row) in slot_rows.iter_mut().enumerate() {
-            let cell = Cell {
-                values: vec!["Free".to_string()],
-                is_start: false,
-                is_end: false,
-            };
-            row.cells.push(cell);
+        for slot in &day.slots {
+            let cells = Cell::new_cells(slot);
+            let slot_rows = m.rows_for_slot(slot);
+            for (cell, row) in cells.iter().zip(slot_rows.iter_mut()) {
+                row.cells.push(cell.clone())
+            }
         }
+        // for (i, row) in slot_rows.iter_mut().enumerate() {
+        //     let cell = Cell {
+        //         values: vec!["Free".to_string()],
+        //         is_start: false,
+        //         is_end: false,
+        //     };
+        //     row.cells.push(cell);
+        // }
     }
 
-    rows.extend(slot_rows);
-
-    Matrix { rows }
+    m
 }
 
 #[derive(Debug, PartialEq)]
@@ -177,5 +207,63 @@ impl TimeSlot {
             self.to.format("%H:%M")
         );
         format!("| {:^9} |", s)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{NaiveDate, NaiveDateTime};
+    use snapgenda::Availability;
+
+    use super::*;
+
+    #[test]
+    fn test_cell_new_cells() {
+        let date = NaiveDate::from_ymd_opt(2024, 8, 21).unwrap();
+        let from = NaiveDateTime::new(date, NaiveTime::from_hms_opt(10, 0, 0).unwrap());
+        let to = NaiveDateTime::new(date, NaiveTime::from_hms_opt(15, 30, 0).unwrap());
+        let s = Slot::new(from, to);
+
+        let exp_cells = vec![
+            // 10-11
+            Cell {
+                is_start: false,
+                is_end: false,
+                values: vec![Availability::Free.to_string()],
+            },
+            // 11-12
+            Cell {
+                is_start: false,
+                is_end: false,
+                values: vec![Availability::Free.to_string()],
+            },
+            // 12-13
+            Cell {
+                is_start: false,
+                is_end: false,
+                values: vec![Availability::Free.to_string()],
+            },
+            // 13-14
+            Cell {
+                is_start: false,
+                is_end: false,
+                values: vec![Availability::Free.to_string()],
+            },
+            // 14-15
+            Cell {
+                is_start: false,
+                is_end: false,
+                values: vec![Availability::Free.to_string()],
+            },
+            // 15-16
+            Cell {
+                is_start: false,
+                is_end: false,
+                values: vec![Availability::Free.to_string()],
+            },
+        ];
+        let cells = Cell::new_cells(&s);
+        assert_eq!(exp_cells.len(), cells.len());
+        assert_eq!(exp_cells, cells)
     }
 }
