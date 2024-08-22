@@ -9,9 +9,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let clndr = CalendarSnapshot::new(wr);
     let m = render::render_calendar(&clndr);
 
-    for row in m.rows {
-        println!("{}", row.render());
-    }
+    print!("{}", m.render());
 
     Ok(())
 }

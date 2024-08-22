@@ -1,81 +1,60 @@
 use chrono::{NaiveTime, TimeDelta, Timelike};
 use snapgenda::{CalendarSnapshot, Slot};
 
+const WEEK_DAYS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 pub struct Matrix {
-    pub header_row: Row,
-    pub rows: Vec<Row>,
+    header_row: Row,
+    rows: Vec<Row>,
 }
 
 impl Matrix {
-    pub fn new() -> Matrix {
+    fn new() -> Matrix {
         let header_row = Row::new_header();
         let rows = Row::new_rows();
 
         Matrix { header_row, rows }
     }
 
-    pub fn rows_for_slot(&mut self, s: &Slot) -> &mut [Row] {
+    fn rows_for_slot(&mut self, s: &Slot) -> &mut [Row] {
         let start = s.from.time().hour();
         let end = s.to.time().hour();
 
         &mut self.rows[start as usize..end as usize]
     }
+
+    pub fn render(&self) -> String {
+        let mut out = String::new();
+
+        let header_string = format!("{}\n", &self.header_row.render()).to_string();
+        out.push_str(&header_string);
+        for row in &self.rows {
+            let row_string = format!("{}\n", row.render()).to_string();
+            out.push_str(&row_string);
+        }
+        out
+    }
 }
 
-pub struct Row {
+struct Row {
     cells: Vec<Cell>,
 }
 
 impl Row {
-    pub fn new_header() -> Row {
-        Row {
-            cells: vec![
-                // First Cell is empty.
-                Cell {
-                    values: vec!["-----------------".to_string()],
-                    is_start: true,
-                    is_end: false,
-                },
-                Cell {
-                    is_start: true,
-                    is_end: false,
-                    values: vec!["Mon".to_string()],
-                },
-                Cell {
-                    is_start: true,
-                    is_end: false,
-                    values: vec!["Tue".to_string()],
-                },
-                Cell {
-                    is_start: true,
-                    is_end: false,
-                    values: vec!["Wed".to_string()],
-                },
-                Cell {
-                    is_start: true,
-                    is_end: false,
-                    values: vec!["Thu".to_string()],
-                },
-                Cell {
-                    is_start: true,
-                    is_end: false,
-                    values: vec!["Fri".to_string()],
-                },
-                Cell {
-                    is_start: true,
-                    is_end: false,
-                    values: vec!["Sat".to_string()],
-                },
-                Cell {
-                    is_start: true,
-                    is_end: false,
-                    values: vec!["Sun".to_string()],
-                },
-            ],
+    fn new_header() -> Row {
+        let mut cells: Vec<Cell> = Vec::new();
+        for week_day in WEEK_DAYS {
+            cells.push(Cell {
+                is_start: false,
+                is_end: false,
+                values: vec![week_day.to_string()],
+            })
         }
+
+        Row { cells }
     }
 
-    pub fn new(time_slot: TimeSlot) -> Row {
+    fn new(time_slot: TimeSlot) -> Row {
         let mut cells: Vec<Cell> = Vec::new();
 
         cells.push(Cell {
@@ -87,7 +66,7 @@ impl Row {
         Row { cells }
     }
 
-    pub fn new_rows() -> Vec<Row> {
+    fn new_rows() -> Vec<Row> {
         let mut rows: Vec<Row> = Vec::new();
 
         for i in 0..=23 {
@@ -100,7 +79,7 @@ impl Row {
         return rows;
     }
 
-    pub fn render(&self) -> String {
+    fn render(&self) -> String {
         let mut out = String::new();
 
         for s in &self.cells {
@@ -112,33 +91,23 @@ impl Row {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Cell {
+struct Cell {
     is_start: bool,
     is_end: bool,
     values: Vec<String>,
 }
 
 impl Cell {
-    pub fn render(&self) -> String {
+    fn render(&self) -> String {
         let mut out = String::new();
         for v in &self.values {
-            let s = format!("| {:^9} |", v);
+            let s = format!("{:^9}", v);
             out.push_str(&s.to_string())
         }
         return out;
     }
 
-    pub fn from_slots(slots: Vec<Slot>) -> Vec<Cell> {
-        let mut out: Vec<Cell> = Vec::new();
-        for slot in slots {
-            let cells = Cell::new_cells(&slot);
-            out.extend(cells);
-        }
-
-        return out;
-    }
-
-    pub fn new_cells(s: &snapgenda::Slot) -> Vec<Cell> {
+    fn new_cells(s: &snapgenda::Slot) -> Vec<Cell> {
         let mut out: Vec<Cell> = Vec::new();
 
         let mut cursor = s.from;
@@ -171,21 +140,13 @@ pub fn render_calendar(cs: &CalendarSnapshot) -> Matrix {
                 row.cells.push(cell.clone())
             }
         }
-        // for (i, row) in slot_rows.iter_mut().enumerate() {
-        //     let cell = Cell {
-        //         values: vec!["Free".to_string()],
-        //         is_start: false,
-        //         is_end: false,
-        //     };
-        //     row.cells.push(cell);
-        // }
     }
 
     m
 }
 
 #[derive(Debug, PartialEq)]
-pub struct TimeSlot {
+struct TimeSlot {
     from: NaiveTime,
     to: NaiveTime,
 }
@@ -206,7 +167,7 @@ impl TimeSlot {
             self.from.format("%H:%M"),
             self.to.format("%H:%M")
         );
-        format!("| {:^9} |", s)
+        format!("{:^9}", s)
     }
 }
 
