@@ -12,7 +12,8 @@ impl Matrix {
         let mut cols: Vec<Column> = Vec::new();
         cols.push(Column::new_timeslot());
         cols.extend(Column::from_days(&cs.week.days));
-        let rows = Row::new_rows(&cols);
+        let mut rows: Vec<Row> = Vec::new();
+        rows.extend(Row::new_rows(&cols));
 
         Matrix { rows }
     }
@@ -36,8 +37,16 @@ struct Row {
 impl Row {
     fn new_rows(cols: &Vec<Column>) -> Vec<Row> {
         let mut rows: Vec<Row> = Vec::new();
+        let mut buffer_cells: Vec<Cell> = Vec::new();
+        for _ in 1..=7 {
+            let cell = Cell::new(&Cell::new_buffer());
+            buffer_cells.push(cell);
+        }
+        rows.push(Row {
+            cells: buffer_cells,
+        });
 
-        for i in 0..=23 {
+        for i in 0..=26 {
             let mut row_cells: Vec<Cell> = Vec::new();
             for col in cols {
                 let cell = &col.cells[i];
@@ -69,22 +78,18 @@ impl Column {
     fn new_timeslot() -> Column {
         let time_slots = TimeSlot::new_range();
         let mut cells: Vec<Cell> = Vec::new();
+
         let render_buffer = Cell::new_buffer();
-        cells.push(Cell {
-            is_start: false,
-            is_end: false,
-            values: vec![render_buffer],
-        });
+        cells.push(Cell::new(&render_buffer));
 
         for slot in time_slots {
             let v = slot.render();
-            let cell = Cell {
-                is_start: false,
-                is_end: false,
-                values: vec![v],
-            };
+            let cell = Cell { values: vec![v] };
             cells.push(cell);
         }
+        cells.push(Cell::new(&render_buffer));
+        cells.push(Cell::new(&render_buffer));
+
         Column { cells }
     }
 
@@ -114,12 +119,16 @@ impl Column {
 
 #[derive(Debug, PartialEq, Clone)]
 struct Cell {
-    is_start: bool,
-    is_end: bool,
     values: Vec<String>,
 }
 
 impl Cell {
+    fn new(value: &String) -> Cell {
+        Cell {
+            values: vec![value.to_string()],
+        }
+    }
+
     fn new_buffer() -> String {
         let ts = TimeSlot::new(1);
         let ts_str = ts.render();
@@ -134,29 +143,30 @@ impl Cell {
     fn render(&self) -> String {
         let mut out = String::new();
         for v in &self.values {
-            let s = format!("{:^9}", v);
-            out.push_str(&s.to_string())
+            let value = format!("{:^9}", v);
+            out.push_str(&value.to_string())
         }
         return out;
     }
 
     fn new_header_cell(week_day: &str) -> Cell {
         return Cell {
-            is_start: false,
-            is_end: false,
             values: vec![week_day.to_string()],
         };
     }
 
     fn new_cells(s: &snapgenda::Slot) -> Vec<Cell> {
         let mut out: Vec<Cell> = Vec::new();
+        out.push(Cell {
+            values: vec!["|¯¯¯¯¯¯|".to_string()],
+        });
 
         let mut cursor = s.from;
         while cursor <= s.to {
+            let box_value = format!("| {} |", s.availability.to_string());
+
             let c = Cell {
-                is_start: false,
-                is_end: false,
-                values: vec![s.availability.to_string()],
+                values: vec![box_value],
             };
             out.push(c);
 
@@ -165,6 +175,9 @@ impl Cell {
                 break;
             }
         }
+        out.push(Cell {
+            values: vec!["|______|".to_string()],
+        });
 
         return out;
     }
@@ -227,38 +240,26 @@ mod tests {
         let exp_cells = vec![
             // 10-11
             Cell {
-                is_start: false,
-                is_end: false,
                 values: vec![Availability::Free.to_string()],
             },
             // 11-12
             Cell {
-                is_start: false,
-                is_end: false,
                 values: vec![Availability::Free.to_string()],
             },
             // 12-13
             Cell {
-                is_start: false,
-                is_end: false,
                 values: vec![Availability::Free.to_string()],
             },
             // 13-14
             Cell {
-                is_start: false,
-                is_end: false,
                 values: vec![Availability::Free.to_string()],
             },
             // 14-15
             Cell {
-                is_start: false,
-                is_end: false,
                 values: vec![Availability::Free.to_string()],
             },
             // 15-16
             Cell {
-                is_start: false,
-                is_end: false,
                 values: vec![Availability::Free.to_string()],
             },
         ];
