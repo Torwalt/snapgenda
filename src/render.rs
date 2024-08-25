@@ -1,33 +1,25 @@
-use chrono::{NaiveTime, TimeDelta, Timelike};
-use snapgenda::{CalendarSnapshot, Day, Slot};
+use chrono::{NaiveTime, TimeDelta};
+use snapgenda::{CalendarSnapshot, Day};
 
 const WEEK_DAYS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 pub struct Matrix {
     rows: Vec<Row>,
-    cols: Vec<Column>,
 }
 
 impl Matrix {
     fn new(cs: &CalendarSnapshot) -> Matrix {
-        let cols = Column::from_days(&cs.week.days);
+        let mut cols: Vec<Column> = Vec::new();
+        cols.push(Column::new_timeslot());
+        cols.extend(Column::from_days(&cs.week.days));
         let rows = Row::new_rows(&cols);
 
-        Matrix { rows, cols }
-    }
-
-    fn rows_for_slot(&mut self, s: &Slot) -> &mut [Row] {
-        let start = s.from.time().hour();
-        let end = s.to.time().hour();
-
-        &mut self.rows[start as usize..end as usize]
+        Matrix { rows }
     }
 
     pub fn render(&self) -> String {
         let mut out = String::new();
 
-        // let header_string = format!("{}\n", &self.header_row.render()).to_string();
-        // out.push_str(&header_string);
         for row in &self.rows {
             let row_string = format!("{}\n", row.render()).to_string();
             out.push_str(&row_string);
@@ -74,6 +66,28 @@ struct Column {
 }
 
 impl Column {
+    fn new_timeslot() -> Column {
+        let time_slots = TimeSlot::new_range();
+        let mut cells: Vec<Cell> = Vec::new();
+        let render_buffer = Cell::new_buffer();
+        cells.push(Cell {
+            is_start: false,
+            is_end: false,
+            values: vec![render_buffer],
+        });
+
+        for slot in time_slots {
+            let v = slot.render();
+            let cell = Cell {
+                is_start: false,
+                is_end: false,
+                values: vec![v],
+            };
+            cells.push(cell);
+        }
+        Column { cells }
+    }
+
     fn from_day(day: &Day, week_day: &str) -> Column {
         let mut cells: Vec<Cell> = Vec::new();
         cells.push(Cell::new_header_cell(week_day));
@@ -88,6 +102,7 @@ impl Column {
 
     fn from_days(days: &[Day; 7]) -> Vec<Column> {
         let mut out: Vec<Column> = Vec::new();
+
         for (day, week_day) in days.iter().zip(WEEK_DAYS) {
             let colmn = Column::from_day(&day, week_day);
             out.push(colmn);
@@ -105,6 +120,17 @@ struct Cell {
 }
 
 impl Cell {
+    fn new_buffer() -> String {
+        let ts = TimeSlot::new(1);
+        let ts_str = ts.render();
+        let mut replaced = String::new();
+        ts_str.chars().for_each(|_| {
+            replaced.push(' ');
+        });
+
+        replaced
+    }
+
     fn render(&self) -> String {
         let mut out = String::new();
         for v in &self.values {
@@ -145,17 +171,7 @@ impl Cell {
 }
 
 pub fn render_calendar(cs: &CalendarSnapshot) -> Matrix {
-    let mut m = Matrix::new(cs);
-
-    for day in &cs.week.days {
-        for slot in &day.slots {
-            let cells = Cell::new_cells(slot);
-            let slot_rows = m.rows_for_slot(slot);
-            for (cell, row) in cells.iter().zip(slot_rows.iter_mut()) {
-                row.cells.push(cell.clone())
-            }
-        }
-    }
+    let m = Matrix::new(cs);
 
     m
 }
@@ -184,12 +200,20 @@ impl TimeSlot {
         );
         format!("{:^9}", s)
     }
+
+    fn new_range() -> Vec<TimeSlot> {
+        let mut out: Vec<TimeSlot> = Vec::new();
+        for i in 0..=23 {
+            out.push(TimeSlot::new(i));
+        }
+        out
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use chrono::{NaiveDate, NaiveDateTime};
-    use snapgenda::Availability;
+    use snapgenda::{Availability, Slot};
 
     use super::*;
 
