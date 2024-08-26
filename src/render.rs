@@ -1,7 +1,7 @@
 use chrono::{NaiveTime, TimeDelta};
-use snapgenda::{CalendarSnapshot, Day};
+use snapgenda::{CalendarSnapshot, Day, WeekDay};
 
-const WEEK_DAYS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEK_DAYS: [WeekDay; 7] = WeekDay::week_days();
 
 pub struct Matrix {
     rows: Vec<Row>,
@@ -37,16 +37,8 @@ struct Row {
 impl Row {
     fn new_rows(cols: &Vec<Column>) -> Vec<Row> {
         let mut rows: Vec<Row> = Vec::new();
-        let mut buffer_cells: Vec<Cell> = Vec::new();
-        for _ in 1..=7 {
-            let cell = Cell::new(&Cell::new_buffer());
-            buffer_cells.push(cell);
-        }
-        rows.push(Row {
-            cells: buffer_cells,
-        });
 
-        for i in 0..=26 {
+        for i in 0..=25 {
             let mut row_cells: Vec<Cell> = Vec::new();
             for col in cols {
                 let cell = &col.cells[i];
@@ -109,7 +101,7 @@ impl Column {
         let mut out: Vec<Column> = Vec::new();
 
         for (day, week_day) in days.iter().zip(WEEK_DAYS) {
-            let colmn = Column::from_day(&day, week_day);
+            let colmn = Column::from_day(&day, &week_day.short_name());
             out.push(colmn);
         }
 
@@ -162,7 +154,7 @@ impl Cell {
         });
 
         let mut cursor = s.from;
-        while cursor <= s.to {
+        while cursor < s.to {
             let box_value = format!("| {} |", s.availability.to_string());
 
             let c = Cell {
