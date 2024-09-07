@@ -2,6 +2,7 @@ use std::error::Error;
 
 use snapgenda::{AddSlot, CalendarSnapshot, WeekRequest};
 
+mod google;
 mod render;
 
 fn main() -> Result<(), Box<dyn Error>> {

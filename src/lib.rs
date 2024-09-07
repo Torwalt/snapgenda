@@ -106,6 +106,7 @@ pub struct AddSlot {
 
 #[derive(Debug)]
 pub struct CalendarSnapshot {
+    pub multi_day_slots: Vec<Slot>,
     pub week: Week,
 }
 
@@ -113,6 +114,7 @@ impl CalendarSnapshot {
     pub fn new(wr: WeekRequest) -> CalendarSnapshot {
         CalendarSnapshot {
             week: Week::new(wr),
+            multi_day_slots: Vec::new(),
         }
     }
 
@@ -124,6 +126,10 @@ impl CalendarSnapshot {
 
             day.add_slot(add_slot.slot);
         }
+    }
+
+    pub fn add_multi_day_slot(&mut self, s: Slot) {
+        self.multi_day_slots.push(s)
     }
 }
 
